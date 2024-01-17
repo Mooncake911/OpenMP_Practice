@@ -8,7 +8,7 @@
 #include <functional>
 
 using namespace std;
-
+using namespace chrono;
 
 /* Generate vector with random values in (a, b) */
 vector<double> rand_vector(long long n, double a, double b) {
@@ -26,7 +26,7 @@ vector<double> rand_vector(long long n, double a, double b) {
 }
 
 /* Do experiment and save results to csv file */
-void doExperiment(const string& filename, const function<long long(int, const vector<double>&, const vector<double>&)>& func) {
+void doExperiment(const string& filename, const function<double(int, const vector<double>&, const vector<double>&)>& func) {
     ofstream csv_file(filename);
     if (!csv_file.is_open()) {
         cerr << "Open file error!" << endl;
@@ -34,13 +34,15 @@ void doExperiment(const string& filename, const function<long long(int, const ve
     }
     csv_file << "Num_Threads,Iter,Time\n";
 
-    long long t;
     for (long long j = 90; j <= 9000000; j *= 10) {
         vector<double> vector1 = rand_vector(j, 1, 1000);
         vector<double> vector2 = rand_vector(j, 1, 1000);
         for (int i = 1; i <= 16; ++i) {
-            t =  func(i, vector1, vector2);
-            csv_file << i << "," << j << "," << t << "\n";
+            auto start_time = high_resolution_clock::now();
+            func(i, vector1, vector2);
+            auto end_time = high_resolution_clock::now();
+            auto duration = duration_cast<microseconds>(end_time - start_time);
+            csv_file << i << "," << j << "," << duration.count() << "\n";
         }
     }
     csv_file.close();
@@ -49,16 +51,8 @@ void doExperiment(const string& filename, const function<long long(int, const ve
 
 
 // 1.
-long long scalarAtomic(int num_thr, const vector<double>& v1, const vector<double>& v2) {
+double scalarAtomic(int num_thr, const vector<double>& v1, const vector<double>& v2) {
     omp_set_num_threads(num_thr);
-
-    // Length check
-    if (v1.size() != v2.size()) {
-        cerr << "Error: Vector sizes do not match." << endl;
-        return 0.0;
-    }
-
-    auto start_time = chrono::high_resolution_clock::now();
 
     double result = 0.0;
 #pragma omp parallel for
@@ -67,27 +61,13 @@ long long scalarAtomic(int num_thr, const vector<double>& v1, const vector<doubl
         result += v1[i] * v2[i];
     }
 
-    auto end_time = chrono::high_resolution_clock::now();
-    auto duration = chrono::duration_cast<chrono::microseconds>(end_time - start_time);
-
-//    cout << "Scalar Product: " << result << endl;
-//    cout << "Duration (microseconds): " << duration.count() << endl;
-
-    return duration.count();
+    return result;
 }
 
 
 // 2.
-long long scalarCritical(int num_thr, const vector<double>& v1, const vector<double>& v2) {
+double scalarCritical(int num_thr, const vector<double>& v1, const vector<double>& v2) {
     omp_set_num_threads(num_thr);
-
-    // Length check
-    if (v1.size() != v2.size()) {
-        cerr << "Error: Vector sizes do not match." << endl;
-        return 0.0;
-    }
-
-    auto start_time = chrono::high_resolution_clock::now();
 
     double result = 0.0;
 #pragma omp parallel for
@@ -96,32 +76,17 @@ long long scalarCritical(int num_thr, const vector<double>& v1, const vector<dou
         result += v1[i] * v2[i];
     }
 
-    auto end_time = chrono::high_resolution_clock::now();
-    auto duration = chrono::duration_cast<chrono::microseconds>(end_time - start_time);
-
-//    cout << "Scalar Product: " << result << endl;
-//    cout << "Duration (microseconds): " << duration.count() << endl;
-
-    return duration.count();
+    return result;
 }
 
 
 // 3.
-long long scalarLock(int num_thr, const vector<double>& v1, const vector<double>& v2) {
+double scalarLock(int num_thr, const vector<double>& v1, const vector<double>& v2) {
     omp_set_num_threads(num_thr);
-
-    // Length check
-    if (v1.size() != v2.size()) {
-        cerr << "Error: Vector sizes do not match." << endl;
-        return 0.0;
-    }
-
-    auto start_time = chrono::high_resolution_clock::now();
-
-    double result = 0.0;
     omp_lock_t lock;
     omp_init_lock(&lock);
 
+    double result = 0.0;
 #pragma omp parallel for
     for (long long i = 0; i < v1.size(); ++i) {
         omp_set_lock(&lock);
@@ -131,27 +96,13 @@ long long scalarLock(int num_thr, const vector<double>& v1, const vector<double>
 
     omp_destroy_lock(&lock);
 
-    auto end_time = chrono::high_resolution_clock::now();
-    auto duration = chrono::duration_cast<chrono::microseconds>(end_time - start_time);
-
-//    cout << "Scalar Product: " << result << endl;
-//    cout << "Duration (microseconds): " << duration.count() << endl;
-
-    return duration.count();
+    return result;
 }
 
 
 // 4.
-long long scalarReduction(int num_thr, const vector<double>& v1, const vector<double>& v2) {
+double scalarReduction(int num_thr, const vector<double>& v1, const vector<double>& v2) {
     omp_set_num_threads(num_thr);
-
-    // Length check
-    if (v1.size() != v2.size()) {
-        cerr << "Error: Vector sizes do not match." << endl;
-        return 0.0;
-    }
-
-    auto start_time = chrono::high_resolution_clock::now();
 
     double result = 0.0;
 #pragma omp parallel for reduction(+:result)
@@ -159,13 +110,7 @@ long long scalarReduction(int num_thr, const vector<double>& v1, const vector<do
         result += v1[i] * v2[i];
     }
 
-    auto end_time = chrono::high_resolution_clock::now();
-    auto duration = chrono::duration_cast<chrono::microseconds>(end_time - start_time);
-
-//    cout << "Scalar Product: " << result << endl;
-//    cout << "Duration (microseconds): " << duration.count() << endl;
-
-    return duration.count();
+    return result;
 }
 
 

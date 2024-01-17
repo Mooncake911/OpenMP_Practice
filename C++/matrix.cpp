@@ -8,7 +8,7 @@
 #include <functional>
 
 using namespace std;
-
+using namespace chrono;
 
 /* Generate matrix with random values in (a, b) */
 vector<vector<double>> generateSquareMatrix(long long n, double a, double b) {
@@ -28,7 +28,7 @@ vector<vector<double>> generateSquareMatrix(long long n, double a, double b) {
 }
 
 /* Do experiment and save results to csv file */
-void doExperiment(const string& filename, const function<long long(int, const vector<vector<double>>&)>& func) {
+void doExperiment(const string& filename, const function<double(int, const vector<vector<double>>&)>& func) {
     ofstream csv_file(filename);
     if (!csv_file.is_open()) {
         cerr << "Open file error!" << endl;
@@ -36,12 +36,14 @@ void doExperiment(const string& filename, const function<long long(int, const ve
     }
     csv_file << "Num_Threads,Iter,Time\n";
 
-    long long t;
     for (long long j = 10; j <= 10000; j *= 10) {
         vector<vector<double>> matrix = generateSquareMatrix(j, 1 , 1000);
         for (int i = 1; i <= 16; ++i) {
-            t =  func(i, matrix);
-            csv_file << i << "," << j << "," << t << "\n";
+            auto start_time = high_resolution_clock::now();
+            func(i, matrix);
+            auto end_time = high_resolution_clock::now();
+            auto duration = duration_cast<microseconds>(end_time - start_time);
+            csv_file << i << "," << j << "," << duration.count() << "\n";
         }
     }
     csv_file.close();
@@ -49,15 +51,13 @@ void doExperiment(const string& filename, const function<long long(int, const ve
 
 
 
-long long MaxOfMin1(int num_thr, const vector<vector<double>>& matrix) {
+double MaxOfMin1(int num_thr, const vector<vector<double>>& matrix) {
     omp_set_num_threads(num_thr);
 
     long long numRows = matrix.size();
     long long numCols = matrix[0].size();
 
     double maxOfMin = numeric_limits<double>::min();
-
-    auto start_time = chrono::high_resolution_clock::now();
 
 #pragma omp parallel for reduction(max: maxOfMin)
     for (long long i = 0; i < numRows; ++i) {
@@ -69,25 +69,17 @@ long long MaxOfMin1(int num_thr, const vector<vector<double>>& matrix) {
         maxOfMin = std::max(maxOfMin, minOfRow);
     }
 
-    auto end_time = chrono::high_resolution_clock::now();
-    auto duration = chrono::duration_cast<chrono::microseconds>(end_time - start_time);
-
-//    cout << "Max of Min in Matrix: " << maxOfMin << endl;
-//    cout << "Duration (microseconds): " << duration.count() << endl;
-
-    return duration.count();
+    return maxOfMin;
 }
 
 
-long long MaxOfMin2(int num_thr, const vector<vector<double>>& matrix) {
+double MaxOfMin2(int num_thr, const vector<vector<double>>& matrix) {
     omp_set_num_threads(num_thr);
 
     long long numRows = matrix.size();
     long long numCols = matrix[0].size();
 
     double maxOfMin = numeric_limits<double>::min();
-
-    auto start_time = chrono::high_resolution_clock::now();
 
 #pragma omp parallel for reduction(max: maxOfMin)
     for (long long i = 0; i < numRows; ++i) {
@@ -100,13 +92,7 @@ long long MaxOfMin2(int num_thr, const vector<vector<double>>& matrix) {
         maxOfMin = std::max(maxOfMin, minOfRow);
     }
 
-    auto end_time = chrono::high_resolution_clock::now();
-    auto duration = chrono::duration_cast<chrono::microseconds>(end_time - start_time);
-
-//    cout << "Max of Min in Matrix: " << maxOfMin << endl;
-//    cout << "Duration (microseconds): " << duration.count() << endl;
-
-    return duration.count();
+    return maxOfMin;
 }
 
 int main() {

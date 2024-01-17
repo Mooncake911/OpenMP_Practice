@@ -7,7 +7,7 @@
 #include <chrono>
 
 using namespace std;
-
+using namespace chrono;
 
 /* Generate triangle-matrix with random values in (a, b) */
 vector<vector<double>> generateSquareMatrix(long long n, double a, double b) {
@@ -28,15 +28,13 @@ vector<vector<double>> generateSquareMatrix(long long n, double a, double b) {
 
 
 /* Find Max of Min in triangle-matrix */
-long long find_max_of_min(int num_thr, const vector<vector<double>>& matrix) {
+double find_max_of_min(int num_thr, const vector<vector<double>>& matrix) {
     omp_set_num_threads(num_thr);
 
     long long numRows = matrix.size();
     long long numCols = matrix[0].size();
 
     double maxOfMin = numeric_limits<double>::min();
-
-    auto start_time = chrono::high_resolution_clock::now();
 
 #pragma omp parallel for reduction(max: maxOfMin) //schedule(dynamic) // schedule(guided)
     for (long long i = 0; i < numRows; ++i) {
@@ -53,13 +51,7 @@ long long find_max_of_min(int num_thr, const vector<vector<double>>& matrix) {
         }
     }
 
-    auto end_time = chrono::high_resolution_clock::now();
-    auto duration = chrono::duration_cast<chrono::microseconds>(end_time - start_time);
-
-//    cout << "Max of Min in Matrix: " << maxOfMin << endl;
-//    cout << "Duration (microseconds): " << duration.count() << endl;
-
-    return duration.count();
+    return maxOfMin;
 }
 
 
@@ -71,14 +63,14 @@ int main() {
     }
     csv_file << "Num_Threads,Iter,Time\n";
 
-    long long t;
     for (long long j = 10; j < 100000; j *= 10) {
         vector<vector<double>> matrix = generateSquareMatrix(j, 1 , 1000);
-        cout << endl;
         for (int i = 1; i <= 16; ++i) {
-            t =  find_max_of_min(i, matrix);
-            cout << i << "," << j << "," << t << endl;
-            csv_file << i << "," << j << "," << t << "\n";
+            auto start_time = high_resolution_clock::now();
+            find_max_of_min(i, matrix);
+            auto end_time = high_resolution_clock::now();
+            auto duration = duration_cast<microseconds>(end_time - start_time);
+            csv_file << i << "," << j << "," << duration.count() << "\n";
         }
     }
 

@@ -9,7 +9,12 @@
 #include <functional>
 
 using namespace std;
+using namespace chrono;
 
+struct Result {
+    double min = numeric_limits<double>::max();
+    double max = numeric_limits<double>::min();
+};
 
 /* Generate vector with random values in (a, b) */
 vector<double> rand_vector(long long n, double a, double b) {
@@ -27,7 +32,7 @@ vector<double> rand_vector(long long n, double a, double b) {
 }
 
 /* Do experiment and save results to csv file */
-void doExperiment(const string& filename, const function<long long(int, const vector<double>&)>& func) {
+void doExperiment(const string& filename, const function<Result(int, const vector<double>&)>& func) {
     ofstream csv_file(filename);
     if (!csv_file.is_open()) {
         cerr << "Open file error!" << endl;
@@ -35,12 +40,14 @@ void doExperiment(const string& filename, const function<long long(int, const ve
     }
     csv_file << "Num_Threads,Iter,Time\n";
 
-    long long t;
     for (long long j = 90; j <= 9000000; j *= 10){
         vector<double> data = rand_vector(j, 1 , 1000);
         for (int i = 1; i <= 16; ++i) {
-            t = func(i, data);
-            csv_file << i << "," << j << "," << t << "\n";
+            auto start_time = high_resolution_clock::now();
+            func(i, data);
+            auto end_time = high_resolution_clock::now();
+            auto duration = duration_cast<microseconds>(end_time - start_time);
+            csv_file << i << "," << j << "," << duration.count() << "\n";
         }
     }
     csv_file.close();
@@ -48,45 +55,29 @@ void doExperiment(const string& filename, const function<long long(int, const ve
 
 
 
-long long MinMaxAtomic(int num_thr, const vector<double>& data) {
+Result MinMaxAtomic(int num_thr, const vector<double>& data) {
     // Don't support min/max
     omp_set_num_threads(num_thr);
+    Result result;
 
-    double min_value = numeric_limits<double>::max();
-    double max_value = numeric_limits<double>::min();
-
-    auto start_time = chrono::high_resolution_clock::now();
-
-//#pragma omp parallel
-//    {
-//#pragma omp for
-//        for (long long i = 1; i < data.size(); ++i) {
+#pragma omp parallel
+    {
+#pragma omp for
+        for (long long i = 1; i < data.size(); ++i) {
 //#pragma omp atomic
-//            min_value = std::min(min_value, data[i]);
-//
+            result.min = std::min(result.min, data[i]);
 //#pragma omp atomic
-//            max_value = std::max(max_value, data[i]);
-//        }
-//    }
+            result.max = std::max(result.max, data[i]);
+        }
+    }
 
-    auto end_time = chrono::high_resolution_clock::now();
-    auto duration = chrono::duration_cast<chrono::microseconds>(end_time - start_time);
-
-    cout << "Min: " << min_value << endl;
-    cout << "Max: " << max_value << endl;
-    cout << "Duration (microseconds): " << duration.count() << endl;
-
-    return duration.count();
+    return result;
 }
 
 
-long long MinMaxCritical(int num_thr, const vector<double>& data) {
+Result MinMaxCritical(int num_thr, const vector<double>& data) {
     omp_set_num_threads(num_thr);
-
-    double min_value = numeric_limits<double>::max();
-    double max_value = numeric_limits<double>::min();
-
-    auto start_time = chrono::high_resolution_clock::now();
+    Result result;
 
 #pragma omp parallel
     {
@@ -94,63 +85,43 @@ long long MinMaxCritical(int num_thr, const vector<double>& data) {
         for (long long i = 1; i < data.size(); ++i) {
 #pragma omp critical
             {
-                min_value = std::min(min_value, data[i]);
-                max_value = std::max(max_value, data[i]);
+                result.min = std::min(result.min, data[i]);
+                result.max = std::max(result.max, data[i]);
             }
         }
     }
 
-    auto end_time = chrono::high_resolution_clock::now();
-    auto duration = chrono::duration_cast<chrono::microseconds>(end_time - start_time);
-
-//    cout << "Min: " << min_value << endl;
-//    cout << "Max: " << max_value << endl;
-//    cout << "Duration (microseconds): " << duration.count() << endl;
-
-    return duration.count();
+    return result;
 }
 
 
-long long MinMaxLock(int num_thr, const vector<double>& data) {
+Result MinMaxLock(int num_thr, const vector<double>& data) {
     omp_set_num_threads(num_thr);
-
-    double min_value = numeric_limits<double>::max();
-    double max_value = numeric_limits<double>::min();
-
-    auto start_time = chrono::high_resolution_clock::now();
-
+    Result result;
     omp_lock_t lock;
     omp_init_lock(&lock);
+
 #pragma omp parallel
     {
 #pragma omp for
         for (long long i = 1; i < data.size(); ++i) {
             omp_set_lock(&lock);
-            min_value = std::min(min_value, data[i]);
-            max_value = std::max(max_value, data[i]);
+            result.min = std::min(result.min, data[i]);
+            result.max = std::max(result.max, data[i]);
             omp_unset_lock(&lock);
         }
     }
     omp_destroy_lock(&lock);
 
-    auto end_time = chrono::high_resolution_clock::now();
-    auto duration = chrono::duration_cast<chrono::microseconds>(end_time - start_time);
-
-//    cout << "Min: " << min_value << endl;
-//    cout << "Max: " << max_value << endl;
-//    cout << "Duration (microseconds): " << duration.count() << endl;
-
-    return duration.count();
+    return result;
 }
 
 
-long long MinMaxReduction(int num_thr, const vector<double>& data) {
+Result MinMaxReduction(int num_thr, const vector<double>& data) {
     omp_set_num_threads(num_thr);
-
+    Result result;
     double min_value = numeric_limits<double>::max();
     double max_value = numeric_limits<double>::min();
-
-    auto start_time = chrono::high_resolution_clock::now();
 
 #pragma omp parallel for reduction(min:min_value) reduction(max:max_value)
     for (long long i = 1; i < data.size(); ++i) {
@@ -158,14 +129,10 @@ long long MinMaxReduction(int num_thr, const vector<double>& data) {
         max_value = std::max(max_value, data[i]);
     }
 
-    auto end_time = chrono::high_resolution_clock::now();
-    auto duration = chrono::duration_cast<chrono::microseconds>(end_time - start_time);
+    result.min = min_value;
+    result.max = max_value;
 
-//    cout << "Min: " << min_value << endl;
-//    cout << "Max: " << max_value << endl;
-//    cout << "Duration (microseconds): " << duration.count() << endl;
-
-    return duration.count();
+    return result;
 }
 
 
