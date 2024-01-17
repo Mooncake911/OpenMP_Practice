@@ -35,7 +35,6 @@ def time_thread_plot(iter_groups, labels):
                      marker='o', linestyle='-',
                      label=f'{label} - Iter = {iter_value}')
 
-            # Выделение точки с наименьшим значением красным цветом
             min_time_idx = group_data['Time'].idxmin()
             plt.scatter(group_data['Num_Threads'].iloc[min_time_idx], group_data['Time'].iloc[min_time_idx],
                         color='black', marker='X', zorder=10)
@@ -64,7 +63,6 @@ def speedup_plot(iter_groups, labels, base_num_threads=1):
                      marker='o', linestyle='-',
                      label=f'{label} - Iter = {iter_value}')
 
-            # Выделение точки с наибольшим значением ускорения красным цветом
             max_speedup_idx = np.argmax(speedup)
             plt.scatter(group_data['Num_Threads'].iloc[max_speedup_idx], speedup.iloc[max_speedup_idx], color='black',
                         marker='X', zorder=10)
