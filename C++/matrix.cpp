@@ -34,7 +34,7 @@ void doExperiment(const string& filename, const function<long long(int, const ve
         cerr << "Open file error!" << endl;
         return;
     }
-    csv_file << "Num_Threads,Matrix_len,Time\n";
+    csv_file << "Num_Threads,Iter,Time\n";
 
     long long t;
     for (long long j = 10; j <= 10000; j *= 10) {

@@ -69,7 +69,7 @@ int main() {
         cerr << "Open file error!" << endl;
         return 1;
     }
-    csv_file << "Num_Threads,Matrix_len,Time\n";
+    csv_file << "Num_Threads,Iter,Time\n";
 
     long long t;
     for (long long j = 10; j < 100000; j *= 10) {
