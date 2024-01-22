@@ -1,4 +1,4 @@
-Num_Threads,Matrix_len,Time
+Num_Threads,Iter,Time
 1,10,2015
 2,10,346
 3,10,235
