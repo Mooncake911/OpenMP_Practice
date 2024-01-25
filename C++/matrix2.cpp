@@ -9,7 +9,7 @@
 using namespace std;
 using namespace chrono;
 
-/* Generate triangle-matrix with random values in (a, b) */
+/* Generate triangle-matrix with random values in range (a, b) */
 vector<vector<double>> generateSquareMatrix(long long n, double a, double b) {
     vector<vector<double>> matrix(n, vector<double>(n, 0.0));
 

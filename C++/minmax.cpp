@@ -14,24 +14,30 @@ using namespace chrono;
 struct Result {
     double min = numeric_limits<double>::max();
     double max = numeric_limits<double>::min();
+
+    void update(double value) {
+        if (value < min)
+            min = value;
+        if (value > max)
+            max = value;
+    }
 };
 
-/* Generate vector with random values in (a, b) */
+/* Generate vector with random values in range (a, b) */
 vector<double> rand_vector(long long n, double a, double b) {
-    vector<double> data;
+    vector<double> data(n);
 
     random_device rd;   // non-deterministic generator
     mt19937 gen(rd());  // to seed mersenne twister.
     uniform_real_distribution<double> dist(a,b); // distribute results between a and b inclusive.
 
-    for (long long i = 0; i < n; ++i) {
-        data.push_back(dist(gen));
-    }
+    for (double& i : data)
+        i = dist(gen);
 
     return data;
 }
 
-/* Do experiment and save results to csv file */
+/* Do experiment and save results in csv file */
 void doExperiment(const string& filename, const function<Result(int, const vector<double>&)>& func) {
     ofstream csv_file(filename);
     if (!csv_file.is_open()) {
@@ -54,7 +60,7 @@ void doExperiment(const string& filename, const function<Result(int, const vecto
 }
 
 
-
+// 1.
 Result MinMaxAtomic(int num_thr, const vector<double>& data) {
     // Don't support min/max
     omp_set_num_threads(num_thr);
@@ -65,9 +71,7 @@ Result MinMaxAtomic(int num_thr, const vector<double>& data) {
 #pragma omp for
         for (long long i = 1; i < data.size(); ++i) {
 //#pragma omp atomic
-            result.min = std::min(result.min, data[i]);
-//#pragma omp atomic
-            result.max = std::max(result.max, data[i]);
+            result.update(data[i]);
         }
     }
 
@@ -75,6 +79,7 @@ Result MinMaxAtomic(int num_thr, const vector<double>& data) {
 }
 
 
+// 2.
 Result MinMaxCritical(int num_thr, const vector<double>& data) {
     omp_set_num_threads(num_thr);
     Result result;
@@ -84,10 +89,7 @@ Result MinMaxCritical(int num_thr, const vector<double>& data) {
 #pragma omp for
         for (long long i = 1; i < data.size(); ++i) {
 #pragma omp critical
-            {
-                result.min = std::min(result.min, data[i]);
-                result.max = std::max(result.max, data[i]);
-            }
+            result.update(data[i]);
         }
     }
 
@@ -95,6 +97,7 @@ Result MinMaxCritical(int num_thr, const vector<double>& data) {
 }
 
 
+// 3.
 Result MinMaxLock(int num_thr, const vector<double>& data) {
     omp_set_num_threads(num_thr);
     Result result;
@@ -106,8 +109,7 @@ Result MinMaxLock(int num_thr, const vector<double>& data) {
 #pragma omp for
         for (long long i = 1; i < data.size(); ++i) {
             omp_set_lock(&lock);
-            result.min = std::min(result.min, data[i]);
-            result.max = std::max(result.max, data[i]);
+            result.update(data[i]);
             omp_unset_lock(&lock);
         }
     }
@@ -117,6 +119,7 @@ Result MinMaxLock(int num_thr, const vector<double>& data) {
 }
 
 
+// 4.
 Result MinMaxReduction(int num_thr, const vector<double>& data) {
     omp_set_num_threads(num_thr);
     Result result;

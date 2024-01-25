@@ -10,23 +10,30 @@
 using namespace std;
 using namespace chrono;
 
-/* Generate vector with random values in (a, b) */
+struct VectorPair {
+    vector<double> v1;
+    vector<double> v2;
+};
+
+/* For DEBUG */
+double scalar(const vector<double>& v1, const vector<double>& v2);
+
+/* Generate vector with random values in range (a, b) */
 vector<double> rand_vector(long long n, double a, double b) {
-    vector<double> data;
+    vector<double> data(n);
 
     random_device rd;   // non-deterministic generator
     mt19937 gen(rd());  // to seed mersenne twister.
     uniform_real_distribution<double> dist(a,b); // distribute results between a and b inclusive.
 
-    for (long long i = 0; i < n; ++i) {
-        data.push_back(dist(gen));
-    }
+    for (double& i : data)
+        i = dist(gen);
 
     return data;
 }
 
-/* Do experiment and save results to csv file */
-void doExperiment(const string& filename, const function<double(int, const vector<double>&, const vector<double>&)>& func) {
+/* Do experiment and save results in csv file */
+void doExperiment(const string& filename, const function<double(int, const VectorPair&)>& func) {
     ofstream csv_file(filename);
     if (!csv_file.is_open()) {
         cerr << "Open file error!" << endl;
@@ -34,12 +41,13 @@ void doExperiment(const string& filename, const function<double(int, const vecto
     }
     csv_file << "Num_Threads,Iter,Time\n";
 
+    VectorPair pair;
     for (long long j = 90; j <= 9000000; j *= 10) {
-        vector<double> vector1 = rand_vector(j, 1, 1000);
-        vector<double> vector2 = rand_vector(j, 1, 1000);
+        pair.v1 = rand_vector(j, 1, 1000);
+        pair.v2 = rand_vector(j, 1, 1000);
         for (int i = 1; i <= 16; ++i) {
             auto start_time = high_resolution_clock::now();
-            func(i, vector1, vector2);
+            func(i, pair);
             auto end_time = high_resolution_clock::now();
             auto duration = duration_cast<microseconds>(end_time - start_time);
             csv_file << i << "," << j << "," << duration.count() << "\n";
@@ -49,16 +57,25 @@ void doExperiment(const string& filename, const function<double(int, const vecto
 }
 
 
+// 0.
+double scalar(const VectorPair& p) {
+    double result = 0.0;
+    for (long long i = 0; i < p.v1.size(); ++i) {
+        result += p.v1[i] * p.v2[i];
+    }
+    return result;
+}
+
 
 // 1.
-double scalarAtomic(int num_thr, const vector<double>& v1, const vector<double>& v2) {
+double scalarAtomic(int num_thr, const VectorPair& p) {
     omp_set_num_threads(num_thr);
 
     double result = 0.0;
 #pragma omp parallel for
-    for (long long i = 0; i < v1.size(); ++i) {
+    for (long long i = 0; i < p.v1.size(); ++i) {
 #pragma omp atomic
-        result += v1[i] * v2[i];
+        result += p.v1[i] * p.v2[i];
     }
 
     return result;
@@ -66,14 +83,14 @@ double scalarAtomic(int num_thr, const vector<double>& v1, const vector<double>&
 
 
 // 2.
-double scalarCritical(int num_thr, const vector<double>& v1, const vector<double>& v2) {
+double scalarCritical(int num_thr, const VectorPair& p) {
     omp_set_num_threads(num_thr);
 
     double result = 0.0;
 #pragma omp parallel for
-    for (long long i = 0; i < v1.size(); ++i) {
+    for (long long i = 0; i < p.v1.size(); ++i) {
 #pragma omp critical
-        result += v1[i] * v2[i];
+        result += p.v1[i] * p.v2[i];
     }
 
     return result;
@@ -81,19 +98,18 @@ double scalarCritical(int num_thr, const vector<double>& v1, const vector<double
 
 
 // 3.
-double scalarLock(int num_thr, const vector<double>& v1, const vector<double>& v2) {
+double scalarLock(int num_thr, const VectorPair& p) {
     omp_set_num_threads(num_thr);
     omp_lock_t lock;
     omp_init_lock(&lock);
 
     double result = 0.0;
 #pragma omp parallel for
-    for (long long i = 0; i < v1.size(); ++i) {
+    for (long long i = 0; i < p.v1.size(); ++i) {
         omp_set_lock(&lock);
-        result += v1[i] * v2[i];
+        result += p.v1[i] * p.v2[i];
         omp_unset_lock(&lock);
     }
-
     omp_destroy_lock(&lock);
 
     return result;
@@ -101,13 +117,13 @@ double scalarLock(int num_thr, const vector<double>& v1, const vector<double>& v
 
 
 // 4.
-double scalarReduction(int num_thr, const vector<double>& v1, const vector<double>& v2) {
+double scalarReduction(int num_thr, const VectorPair& p) {
     omp_set_num_threads(num_thr);
 
     double result = 0.0;
 #pragma omp parallel for reduction(+:result)
-    for (long long i = 0; i < v1.size(); ++i) {
-        result += v1[i] * v2[i];
+    for (long long i = 0; i < p.v1.size(); ++i) {
+        result += p.v1[i] * p.v2[i];
     }
 
     return result;

@@ -10,7 +10,22 @@
 using namespace std;
 using namespace chrono;
 
-/* Generate matrix with random values in (a, b) */
+void CheckOpenMPSupport() {
+    #ifdef _OPENMP
+            cout << "OpenMP is supported" << endl;
+
+            #ifdef OMP_NESTED
+                    cout << "Nested parallelism is supported" << endl;
+            #else
+                    cout << "Nested parallelism is NOT supported" << endl;
+            #endif
+
+    #else
+            cout << "OpenMP is NOT supported" << endl;
+    #endif
+}
+
+/* Generate matrix with random values in range (a, b) */
 vector<vector<double>> generateSquareMatrix(long long n, double a, double b) {
     vector<vector<double>> matrix(n, vector<double>(n, 0.0));
 
@@ -27,7 +42,7 @@ vector<vector<double>> generateSquareMatrix(long long n, double a, double b) {
     return matrix;
 }
 
-/* Do experiment and save results to csv file */
+/* Do experiment and save results in csv file */
 void doExperiment(const string& filename, const function<double(int, const vector<vector<double>>&)>& func) {
     ofstream csv_file(filename);
     if (!csv_file.is_open()) {
@@ -50,7 +65,7 @@ void doExperiment(const string& filename, const function<double(int, const vecto
 }
 
 
-
+// 1.
 double MaxOfMin1(int num_thr, const vector<vector<double>>& matrix) {
     omp_set_num_threads(num_thr);
 
@@ -73,19 +88,20 @@ double MaxOfMin1(int num_thr, const vector<vector<double>>& matrix) {
 }
 
 
+// 2.
 double MaxOfMin2(int num_thr, const vector<vector<double>>& matrix) {
-    omp_set_num_threads(num_thr);
-
+    int sqrt_num_thr = static_cast<int>(sqrt(num_thr));
     long long numRows = matrix.size();
     long long numCols = matrix[0].size();
 
     double maxOfMin = numeric_limits<double>::min();
 
-#pragma omp parallel for reduction(max: maxOfMin)
+
+    #pragma omp parallel for reduction(max: maxOfMin)
     for (long long i = 0; i < numRows; ++i) {
         double minOfRow = matrix[i][0];
 
-#pragma omp parallel for reduction(min: minOfRow)
+        #pragma omp parallel for reduction(min: minOfRow)
         for (long long  j = 1; j < numCols; ++j)
             minOfRow = std::min(minOfRow, matrix[i][j]);
 
@@ -95,7 +111,9 @@ double MaxOfMin2(int num_thr, const vector<vector<double>>& matrix) {
     return maxOfMin;
 }
 
+
 int main() {
+    CheckOpenMPSupport();
     doExperiment(R"(D:\Projects\PyCharm_Projects\OpenMP\data\matrix_1.csv)", MaxOfMin1);
     doExperiment(R"(D:\Projects\PyCharm_Projects\OpenMP\data\matrix_2.csv)", MaxOfMin2);
     return 0;
