@@ -46,7 +46,7 @@ void doExperiment(const string& filename, const function<Result(int, const vecto
     }
     csv_file << "Num_Threads,Iter,Time\n";
 
-    for (long long j = 90; j <= 9000000; j *= 10){
+    for (long long j = 10; j <= 1000000; j *= 10){
         vector<double> data = rand_vector(j, 1 , 1000);
         for (int i = 1; i <= 16; ++i) {
             auto start_time = high_resolution_clock::now();

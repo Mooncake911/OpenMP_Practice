@@ -25,6 +25,17 @@ void CheckOpenMPSupport() {
     #endif
 }
 
+
+double MaxOfMin(const vector<vector<double>>& matrix);
+
+/* For DEBUG */
+void TestResult(double r1, double r2) {
+    if (r1 == r2)
+        cout << "Results are identical!" << endl;
+    else
+        cerr << "Results are NOT identical!" << endl;
+}
+
 /* Generate matrix with random values in range (a, b) */
 vector<vector<double>> generateSquareMatrix(long long n, double a, double b) {
     vector<vector<double>> matrix(n, vector<double>(n, 0.0));
@@ -56,12 +67,33 @@ void doExperiment(const string& filename, const function<double(int, const vecto
         for (int i = 1; i <= 16; ++i) {
             auto start_time = high_resolution_clock::now();
             func(i, matrix);
+            //TestResult(func(i, matrix), MaxOfMin(matrix));
             auto end_time = high_resolution_clock::now();
             auto duration = duration_cast<microseconds>(end_time - start_time);
             csv_file << i << "," << j << "," << duration.count() << "\n";
         }
     }
     csv_file.close();
+}
+
+
+// 0.
+double MaxOfMin(const vector<vector<double>>& matrix) {
+    long long numRows = matrix.size();
+    long long numCols = matrix[0].size();
+
+    double maxOfMin = numeric_limits<double>::min();
+
+    for (long long i = 0; i < numRows; ++i) {
+        double minOfRow = matrix[i][0];
+
+        for (long long  j = 1; j < numCols; ++j)
+            minOfRow = std::min(minOfRow, matrix[i][j]);
+
+        maxOfMin = std::max(maxOfMin, minOfRow);
+    }
+
+    return maxOfMin;
 }
 
 
@@ -90,7 +122,8 @@ double MaxOfMin1(int num_thr, const vector<vector<double>>& matrix) {
 
 // 2.
 double MaxOfMin2(int num_thr, const vector<vector<double>>& matrix) {
-    int sqrt_num_thr = static_cast<int>(sqrt(num_thr));
+    omp_set_num_threads(num_thr);
+
     long long numRows = matrix.size();
     long long numCols = matrix[0].size();
 

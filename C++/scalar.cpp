@@ -15,8 +15,15 @@ struct VectorPair {
     vector<double> v2;
 };
 
+double scalar(const VectorPair& p);
+
 /* For DEBUG */
-double scalar(const vector<double>& v1, const vector<double>& v2);
+void TestResult(double r1, double r2) {
+    if (r1 == r2)
+        cout << "Results are identical!" << endl;
+    else
+        cerr << "Results are NOT identical!" << endl;
+}
 
 /* Generate vector with random values in range (a, b) */
 vector<double> rand_vector(long long n, double a, double b) {
@@ -42,12 +49,13 @@ void doExperiment(const string& filename, const function<double(int, const Vecto
     csv_file << "Num_Threads,Iter,Time\n";
 
     VectorPair pair;
-    for (long long j = 90; j <= 9000000; j *= 10) {
+    for (long long j = 10; j <= 1000000; j *= 10) {
         pair.v1 = rand_vector(j, 1, 1000);
         pair.v2 = rand_vector(j, 1, 1000);
         for (int i = 1; i <= 16; ++i) {
             auto start_time = high_resolution_clock::now();
             func(i, pair);
+            //TestResult(func(i, pair), scalar(pair));
             auto end_time = high_resolution_clock::now();
             auto duration = duration_cast<microseconds>(end_time - start_time);
             csv_file << i << "," << j << "," << duration.count() << "\n";
@@ -87,10 +95,16 @@ double scalarCritical(int num_thr, const VectorPair& p) {
     omp_set_num_threads(num_thr);
 
     double result = 0.0;
-#pragma omp parallel for
-    for (long long i = 0; i < p.v1.size(); ++i) {
+#pragma omp parallel
+    {
+
+        double local_result = 0.0;
+#pragma omp for
+        for (long long i = 0; i < p.v1.size(); ++i)
+            local_result += p.v1[i] * p.v2[i];
+
 #pragma omp critical
-        result += p.v1[i] * p.v2[i];
+        result += local_result;
     }
 
     return result;
@@ -104,14 +118,19 @@ double scalarLock(int num_thr, const VectorPair& p) {
     omp_init_lock(&lock);
 
     double result = 0.0;
-#pragma omp parallel for
-    for (long long i = 0; i < p.v1.size(); ++i) {
+#pragma omp parallel
+    {
+
+        double local_result = 0.0;
+#pragma omp for
+        for (long long i = 0; i < p.v1.size(); ++i)
+            local_result += p.v1[i] * p.v2[i];
+
         omp_set_lock(&lock);
-        result += p.v1[i] * p.v2[i];
+        result += local_result;
         omp_unset_lock(&lock);
     }
     omp_destroy_lock(&lock);
-
     return result;
 }
 
