@@ -60,6 +60,7 @@ void doExperiment(const string& filename, const string& mode,
             csv_file << i << "," << j << "," << duration.count() << "\n";
         }
     }
+
     csv_file.close();
 }
 

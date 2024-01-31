@@ -61,6 +61,7 @@ void doExperiment(const string& filename, const function<double(int, const Vecto
             csv_file << i << "," << j << "," << duration.count() << "\n";
         }
     }
+
     csv_file.close();
 }
 
@@ -97,12 +98,10 @@ double scalarCritical(int num_thr, const VectorPair& p) {
     double result = 0.0;
 #pragma omp parallel
     {
-
         double local_result = 0.0;
 #pragma omp for
         for (long long i = 0; i < p.v1.size(); ++i)
             local_result += p.v1[i] * p.v2[i];
-
 #pragma omp critical
         result += local_result;
     }
@@ -120,7 +119,6 @@ double scalarLock(int num_thr, const VectorPair& p) {
     double result = 0.0;
 #pragma omp parallel
     {
-
         double local_result = 0.0;
 #pragma omp for
         for (long long i = 0; i < p.v1.size(); ++i)
@@ -131,6 +129,7 @@ double scalarLock(int num_thr, const VectorPair& p) {
         omp_unset_lock(&lock);
     }
     omp_destroy_lock(&lock);
+
     return result;
 }
 

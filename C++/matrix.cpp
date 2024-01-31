@@ -73,6 +73,7 @@ void doExperiment(const string& filename, const function<double(int, const vecto
             csv_file << i << "," << j << "," << duration.count() << "\n";
         }
     }
+
     csv_file.close();
 }
 

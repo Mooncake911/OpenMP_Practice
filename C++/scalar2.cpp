@@ -57,7 +57,6 @@ void doExperiment(const string& filename, const function<double(const vector<dou
                         pairs[k] = pair;
                         k += 1;
                     }
-
                 }
             }
 
@@ -74,7 +73,6 @@ void doExperiment(const string& filename, const function<double(const vector<dou
                     {
                         csv_file << i << "," << pair.v1.size() << "," << duration << "\n";
                     }
-
                 }
             }
         }
